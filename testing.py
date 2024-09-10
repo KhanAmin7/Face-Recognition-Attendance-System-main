@@ -1,29 +1,28 @@
 import cv2
+import os
 import numpy as np
+from PIL import Image
 
-recognizer = cv2.createLBPHFaceRecognizer()
-recognizer.read('TrainingImageLabel/trainner.yml')
-cascadePath = "haarcascade_frontalface_default.xml"
-faceCascade = cv2.CascadeClassifier(cascadePath)
-font = cv2.FONT_HERSHEY_SIMPLEX
+recognizer = cv2.face.LBPHFaceRecognizer_create()
+detector = cv2.CascadeClassifier("haarcascade_frontalface_default.xml")
 
-cam = cv2.VideoCapture(0)
-while True:
-    ret, im = cam.read()
-    gray = cv2.cvtColor(im, cv2.COLOR_BGR2GRAY)
-    faces = faceCascade.detectMultiScale(gray, 1.2, 5)
-    for(x, y, w, h) in faces:
-        Id, conf = recognizer.predict(gray[y:y+h, x:x+w])
+def getImagesAndLabels(path):
+    imagePaths = [os.path.join(path, f) for f in os.listdir(path)]
+    faceSamples = []
+    Ids = []
+    
+    for imagePath in imagePaths:
+        pilImage = Image.open(imagePath).convert('L')
+        imageNp = np.array(pilImage, 'uint8')
+        Id = int(os.path.split(imagePath)[-1].split(".")[1])
+        faces = detector.detectMultiScale(imageNp)
+        
+        for (x, y, w, h) in faces:
+            faceSamples.append(imageNp[y:y+h, x:x+w])
+            Ids.append(Id)
+    
+    return faceSamples, Ids
 
-        # # else:
-        # #     Id="Unknown"
-        # cv2.rectangle(im, (x-22,y-90), (x+w+22, y-22), (0,255,0), -1)
-        cv2.rectangle(im, (x, y), (x + w, y + h), (0, 260, 0), 7)
-        cv2.putText(im, str(Id), (x, y-40), font, 2, (255, 255, 255), 3)
-
-        # cv2.putText(im, str(Id), (x + h, y), font, 1, (0, 260, 0), 2)
-    cv2.imshow('im', im)
-    if cv2.waitKey(10) & 0xFF == ord('q'):
-        break
-cam.release()
-cv2.destroyAllWindows()
+faces, Ids = getImagesAndLabels('TrainingImage')
+recognizer.train(faces, np.array(Ids))
+recognizer.save('TrainingImageLabel/trainner.yml')
